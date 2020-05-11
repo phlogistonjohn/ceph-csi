@@ -22,6 +22,10 @@ type ErrKeyNotFound struct {
 	err     error
 }
 
+func NewErrKeyNotFound(keyName string, err error) ErrKeyNotFound {
+	return ErrKeyNotFound{keyName, err}
+}
+
 func (e ErrKeyNotFound) Error() string {
 	return e.err.Error()
 }

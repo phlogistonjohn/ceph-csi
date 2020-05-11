@@ -211,14 +211,21 @@ type Connection struct {
 	// connection metadata
 	monitors string
 	cr       *util.Credentials
+	// cached cluster connection (required by go-ceph)
+	conn *util.ClusterConnection
 }
 
 // Connect establishes a new connection to a ceph cluster for journal metadata.
 func (cj *Config) Connect(monitors string, cr *util.Credentials) (*Connection, error) {
+	cc := &util.ClusterConnection{}
+	if err := cc.Connect(monitors, cr); err != nil {
+		return nil, err
+	}
 	conn := &Connection{
 		config:   cj,
 		monitors: monitors,
 		cr:       cr,
+		conn:     cc,
 	}
 	return conn, nil
 }
@@ -257,7 +264,7 @@ func (conn *Connection) CheckReservation(ctx context.Context,
 	}
 
 	// check if request name is already part of the directory omap
-	objUUIDAndPool, err := util.GetOMapValue(ctx, conn.monitors, conn.cr, journalPool, cj.namespace, cj.csiDirectory,
+	objUUIDAndPool, err := getOneOMapValue(ctx, conn, journalPool, cj.namespace, cj.csiDirectory,
 		cj.csiNameKeyPrefix+reqName)
 	if err != nil {
 		// error should specifically be not found, for volume to be absent, any other error
@@ -584,7 +591,7 @@ func (conn *Connection) GetImageAttributes(ctx context.Context, pool, objectUUID
 	}
 
 	// TODO: fetch all omap vals in one call, than make multiple listomapvals
-	imageAttributes.RequestName, err = util.GetOMapValue(ctx, conn.monitors, conn.cr, pool, cj.namespace,
+	imageAttributes.RequestName, err = getOneOMapValue(ctx, conn, pool, cj.namespace,
 		cj.cephUUIDDirectoryPrefix+objectUUID, cj.csiNameKey)
 	if err != nil {
 		return nil, err
@@ -592,7 +599,7 @@ func (conn *Connection) GetImageAttributes(ctx context.Context, pool, objectUUID
 
 	// image key was added at some point, so not all volumes will have this key set
 	// when ceph-csi was upgraded
-	imageAttributes.ImageName, err = util.GetOMapValue(ctx, conn.monitors, conn.cr, pool, cj.namespace,
+	imageAttributes.ImageName, err = getOneOMapValue(ctx, conn, pool, cj.namespace,
 		cj.cephUUIDDirectoryPrefix+objectUUID, cj.csiImageKey)
 	if err != nil {
 		// if the key was not found, assume the default key + UUID
@@ -610,7 +617,7 @@ func (conn *Connection) GetImageAttributes(ctx context.Context, pool, objectUUID
 		}
 	}
 
-	imageAttributes.KmsID, err = util.GetOMapValue(ctx, conn.monitors, conn.cr, pool, cj.namespace,
+	imageAttributes.KmsID, err = getOneOMapValue(ctx, conn, pool, cj.namespace,
 		cj.cephUUIDDirectoryPrefix+objectUUID, cj.encryptKMSKey)
 	if err != nil {
 		// ErrKeyNotFound means no encryption KMS was used
@@ -622,7 +629,7 @@ func (conn *Connection) GetImageAttributes(ctx context.Context, pool, objectUUID
 		}
 	}
 
-	journalPoolIDStr, err := util.GetOMapValue(ctx, conn.monitors, conn.cr, pool, cj.namespace,
+	journalPoolIDStr, err := getOneOMapValue(ctx, conn, pool, cj.namespace,
 		cj.cephUUIDDirectoryPrefix+objectUUID, cj.csiJournalPool)
 	if err != nil {
 		if _, ok := err.(util.ErrKeyNotFound); !ok {
@@ -639,7 +646,7 @@ func (conn *Connection) GetImageAttributes(ctx context.Context, pool, objectUUID
 	}
 
 	if snapSource {
-		imageAttributes.SourceName, err = util.GetOMapValue(ctx, conn.monitors, conn.cr, pool, cj.namespace,
+		imageAttributes.SourceName, err = getOneOMapValue(ctx, conn, pool, cj.namespace,
 			cj.cephUUIDDirectoryPrefix+objectUUID, cj.cephSnapSourceKey)
 		if err != nil {
 			return nil, err
