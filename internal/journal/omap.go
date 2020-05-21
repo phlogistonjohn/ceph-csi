@@ -89,10 +89,10 @@ func removeMapKeys(
 	return err
 }
 
-func setOneOMapKey(
+func setOMapKeys(
 	ctx context.Context,
 	conn *Connection,
-	poolName, namespace, oMapName, oMapKey, keyValue string) error {
+	poolName, namespace, oid string, pairs map[string]string) error {
 	// fetch and configure the rados ioctx
 	ioctx, err := conn.conn.GetIoctx(poolName)
 	if err != nil {
@@ -104,18 +104,19 @@ func setOneOMapKey(
 		ioctx.SetNamespace(namespace)
 	}
 
-	pairs := map[string][]byte{
-		oMapKey: []byte(keyValue),
+	bpairs := make(map[string][]byte, len(pairs))
+	for k, v := range pairs {
+		bpairs[k] = []byte(v)
 	}
-	err = ioctx.SetOmap(oMapName, pairs)
+	err = ioctx.SetOmap(oid, bpairs)
 	if err != nil {
 		klog.Errorf(
-			util.Log(ctx, "failed setting omap key (pool=%q, namespace=%q, name=%q, key=%q, value=%q): %v"),
-			poolName, namespace, oMapName, oMapKey, keyValue, err)
+			util.Log(ctx, "failed setting omap key (pool=%q, namespace=%q, name=%q, pairs=%#v): %v"),
+			poolName, namespace, oid, pairs, err)
 	} else {
 		klog.Infof(
-			util.Log(ctx, "XXX set omap key (pool=%q, namespace=%q, name=%q, key=%q, value=%q): %v"),
-			poolName, namespace, oMapName, oMapKey, keyValue, err)
+			util.Log(ctx, "XXX set omap key (pool=%q, namespace=%q, name=%q, pairs=%%#v): %v"),
+			poolName, namespace, oid, pairs, err)
 	}
 	return err
 }
