@@ -61,11 +61,10 @@ func getOMapValues(
 	return results, nil
 }
 
-
-func removeOneOMapKey(
+func removeMapKeys(
 	ctx context.Context,
 	conn *Connection,
-	poolName, namespace, oMapName, oMapKey string) error {
+	poolName, namespace, oid string, keys []string) error {
 	// fetch and configure the rados ioctx
 	ioctx, err := conn.conn.GetIoctx(poolName)
 	if err != nil {
@@ -77,15 +76,15 @@ func removeOneOMapKey(
 		ioctx.SetNamespace(namespace)
 	}
 
-	err = ioctx.RmOmapKeys(oMapName, []string{oMapKey})
+	err = ioctx.RmOmapKeys(oid, keys)
 	if err != nil {
 		klog.Errorf(
-			util.Log(ctx, "failed removing omap key (pool=%q, namespace=%q, name=%q, key=%q): %v"),
-			poolName, namespace, oMapName, oMapKey, err)
+			util.Log(ctx, "failed removing omap keys (pool=%q, namespace=%q, name=%q): %v"),
+			poolName, namespace, oid, err)
 	} else {
 		klog.Infof(
-			util.Log(ctx, "XXX removed omap key (pool=%q, namespace=%q, name=%q, key=%q, ): %v"),
-			poolName, namespace, oMapName, oMapKey, err)
+			util.Log(ctx, "XXX removed omap key (pool=%q, namespace=%q, name=%q): %v"),
+			poolName, namespace, oid, err)
 	}
 	return err
 }
